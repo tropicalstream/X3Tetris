@@ -1,0 +1,11 @@
+*.iml
+.gradle/
+local.properties
+.idea/
+.DS_Store
+build/
+captures/
+.externalNativeBuild/
+.cxx/
+# player-provided music is not committed
+app/src/main/assets/music/*.mp3
