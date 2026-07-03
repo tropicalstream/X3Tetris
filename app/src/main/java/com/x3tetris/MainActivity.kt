@@ -20,6 +20,7 @@ class MainActivity : AppCompatActivity() {
     private lateinit var game: GameState
     private lateinit var sfx: Sfx
     private lateinit var music: MusicPlayer
+    private lateinit var voice: Voice
     private lateinit var gestures: GameGestures
     private val menuItemCount = 8
 
@@ -35,11 +36,12 @@ class MainActivity : AppCompatActivity() {
             "clear1", "clear2", "clear3", "tetris", "tspin", "combo",
             "levelup", "gameover", "panda", "menu", "chroma")
         music = MusicPlayer(this)
+        voice = Voice(this)
 
         glView = GLSurfaceView(this).apply {
             setEGLContextClientVersion(2)
             setEGLConfigChooser(8, 8, 8, 0, 0, 0)
-            setRenderer(GameRenderer(game, sfx, music))
+            setRenderer(GameRenderer(game, sfx, music, voice))
             renderMode = GLSurfaceView.RENDERMODE_CONTINUOUSLY
         }
         setContentView(glView)
@@ -173,6 +175,7 @@ class MainActivity : AppCompatActivity() {
 
     override fun onDestroy() {
         music.stop()
+        voice.release()
         sfx.release()
         super.onDestroy()
     }

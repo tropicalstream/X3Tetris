@@ -35,6 +35,38 @@ level-up shows the next chapter of Tetris history:
 Scoring: 100/300/500/800 × level; T-spins 800/1200/1600; B2B ×1.5;
 combos 50 × n × level; soft drop +1/cell; hard drop +2/cell.
 
+## The Goal Meter — how you finish a level
+
+A neon meter stands beside the well. It starts **full** and **drains** as you
+score toward the level goal — **when the meter is empty, the level is done.**
+The HUD also spells it out ("METER: 6 LINE CREDITS TO GO"). Each tier fills
+it differently:
+
+| Tier | Goal | Inspired by |
+| --- | --- | --- |
+| **APPRENTICE** | *Chroma Points* — every popped block (10×chain) and line (60) feeds the meter; big color explosions melt levels fast | Tetris Worlds cascade, The New Tetris |
+| **JOURNEYMAN** | *Line Credits* (10): a line = 1, any 6+ same-color pop = **+2** — tactical recovery pays | Tetris DS missions |
+| **ADEPT** | *10-Line Sprint*: Tetrises & T-spin clears count **double**; chroma pops are your escape valve, not progress | Tetris Effect sprint, TGM |
+| **WIZARD** | *10 strict rows*, nothing else counts | TGM, NES marathon |
+
+Level clear in Apprentice/Journeyman/Adept: every leftover 3+ color run
+**chain-pops in a firework display** for bonus points (5×blocks×level×chain)
+before the next stage. Wizard transitions instantly — zero flair, unbroken drop.
+
+## The Announcer
+
+A Fish-voiced arcade host (voice model `a387e2e593f74e899e45cf17a7c81dd7`)
+calls the big moments — welcome, level clears, Tetrises, near-empty meter,
+game over, and the occasional zen nudge if things go quiet. A hard 45-second
+global cooldown keeps it engaging, never chatty. Render the clips once:
+
+```bash
+pip install requests
+python3 app/tools/generate_voice.py     # key in gitignored app/tools/fish.config
+```
+
+Clips land in `assets/voice/`; the game is silent-but-happy without them.
+
 ## Skill tiers & the CHROMA rule
 
 Settings -> SKILL. Straight horizontal or vertical **same-color runs pop

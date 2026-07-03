@@ -135,10 +135,19 @@ class GameState {
     private var lastActionRotate = false
     var clearingRows: List<Int> = emptyList(); private set
     var clearAnimMs = 0L; private set
+
+    // LEVEL GOAL METER — starts full, DRAINS as you progress; empty = level clear.
+    //  Apprentice: chroma points (pops + lines)   Journeyman: line credits (+2 per 6+ run)
+    //  Adept: 10-line sprint (Tetris/T-spin count double)   Wizard: 10 strict rows
+    var goalTarget = 10f; private set
+    var goalProgress = 0f; private set
+    val goalFrac: Float get() = if (goalTarget <= 0f) 1f else (goalProgress / goalTarget).coerceIn(0f, 1f)
+    private var lastClearTspin = false
     private val rnd = Random(System.nanoTime())
     private val shoutBags = HashMap<String, MutableList<String>>()
+    private val colorOrder = intArrayOf(0, 4, 1, 2, 3, 5, 6)  // cyan red yellow purple green blue orange
 
-    init { refillBag(); repeat(3) { val s = drawBag(); nextQueue.add(s); nextColors.add(rollColor(s)) }; spawn() }
+    init { refillBag(); repeat(3) { val s = drawBag(); nextQueue.add(s); nextColors.add(rollColor(s)) }; initGoal(); spawn() }
 
     // ---- helpers ----
     private fun refillBag() { bag.addAll((0..6).shuffled(rnd)) }
@@ -194,7 +203,6 @@ class GameState {
      * (big friendly same-color groups), growing to 5 across levels;
      * Journeyman 4->6; Adept 4->7; Wizard plays classic shape colors, all 7.
      */
-    private val COLOR_ORDER = intArrayOf(0, 4, 1, 2, 3, 5, 6)  // cyan red yellow purple green blue orange
     fun colorCount(): Int = when (AppState.skill) {
         0 -> (3 + (level - 1) / 3).coerceAtMost(5)
         1 -> (4 + (level - 1) / 3).coerceAtMost(6)
@@ -203,7 +211,7 @@ class GameState {
     }
 
     private fun rollColor(shape: Int): Int =
-        if (AppState.skill == 3) shape else COLOR_ORDER[rnd.nextInt(colorCount())]
+        if (AppState.skill == 3) shape else colorOrder[rnd.nextInt(colorCount())]
 
     private fun shout(pool: Array<String>, key: String): String {
         val bagList = shoutBags.getOrPut(key) { mutableListOf() }
@@ -324,6 +332,7 @@ class GameState {
             if (tSpin) { score += 400L * level; events.add(Event("message", 0, shout(TSPIN_SHOUTS, "ts"))) }
             combo = -1
             applyChroma()                            // skill rule: color groups may pop
+            checkGoal()
             if (!gameOver) spawn()
             return
         }
@@ -343,6 +352,7 @@ class GameState {
         else if (tSpin) events.add(Event("tspinclear", n, shout(TSPIN_SHOUTS, "ts")))
         if (combo > 1) events.add(Event("combo", combo))
         events.add(Event("clear", n))
+        lastClearTspin = tSpin
         clearingRows = full
         clearAnimMs = 380L
         running = false                                  // hold the world for the bang
@@ -360,16 +370,53 @@ class GameState {
         val n = clearingRows.size
         clearingRows = emptyList()
         lines += n
-        val newLevel = lines / 10 + 1
-        if (newLevel > level) {
-            level = newLevel
-            val fact = HISTORY[(level - 2).coerceIn(0, HISTORY.size - 1)]
-            events.add(Event("levelup", level, fact))
-            events.add(Event("message", 0, shout(LEVEL_SHOUTS, "lvl")))
+        goalProgress += when (AppState.skill) {
+            0 -> n * 60f                                        // chroma points per line
+            2 -> if (n == 4 || lastClearTspin) n * 2f else n.toFloat()  // sprint: hard clears double
+            else -> n.toFloat()                                 // line credits
         }
         running = true
         applyChroma()                                // settled stack may chain color pops
+        checkGoal()
         spawn()
+    }
+
+    // ---------------- level goal (the draining meter) ----------------
+
+    private fun initGoal() {
+        goalProgress = 0f
+        goalTarget = if (AppState.skill == 0) 240f + (level - 1) * 60f else 10f
+    }
+
+    private fun checkGoal() {
+        if (gameOver || goalProgress < goalTarget) return
+        // LEVEL CLEAR: Apprentice/Journeyman/Adept get the firework send-off;
+        // Wizard transitions instantly — the drop never breaks stride.
+        if (AppState.skill != 3) fireworks()
+        level++
+        initGoal()
+        val fact = HISTORY[(level - 2).coerceIn(0, HISTORY.size - 1)]
+        if (AppState.skill != 3) events.add(Event("fireworks", level))
+        events.add(Event("levelup", level, fact))
+        if (AppState.skill == 3) events.add(Event("message", 0, shout(LEVEL_SHOUTS, "lvl")))
+    }
+
+    /** Level-clear fireworks: every leftover 3+ run chain-pops for bonus points. */
+    private fun fireworks() {
+        var chain = 0
+        while (chain < 6) {
+            val doomed = collectDoomed(3)
+            if (doomed.isEmpty()) break
+            chain++
+            val cells = IntArray(doomed.size * 3)
+            doomed.forEachIndexed { i, idx ->
+                cells[i * 3] = idx % W; cells[i * 3 + 1] = idx / W; cells[i * 3 + 2] = board[idx]
+                board[idx] = 0
+            }
+            score += 5L * doomed.size * level * chain
+            events.add(Event("chroma", chain, "", cells))
+            columnGravity()
+        }
     }
 
     // ---------------- chroma (skill) mechanic ----------------
@@ -381,40 +428,63 @@ class GameState {
      * 20 × blocks × level × chain. Chroma pops do NOT advance the line
      * counter — leveling stays honest row-clearing, as tradition demands.
      */
+    private var lastSweepBigRuns = 0
+
+    /** Marks straight horizontal/vertical same-color runs >= [thr]; counts 6+ runs. */
+    private fun collectDoomed(thr: Int): List<Int> {
+        val marked = BooleanArray(W * H)
+        lastSweepBigRuns = 0
+        for (r in 0 until H) {
+            var c = 0
+            while (c < W) {
+                val start = c
+                val color = board[r * W + c]
+                if (color == 0) { c++; continue }
+                while (c < W && board[r * W + c] == color) c++
+                if (c - start >= thr) {
+                    for (x in start until c) marked[r * W + x] = true
+                    if (c - start >= 6) lastSweepBigRuns++
+                }
+            }
+        }
+        for (c in 0 until W) {
+            var r = 0
+            while (r < H) {
+                val start = r
+                val color = board[r * W + c]
+                if (color == 0) { r++; continue }
+                while (r < H && board[r * W + c] == color) r++
+                if (r - start >= thr) {
+                    for (y in start until r) marked[y * W + c] = true
+                    if (r - start >= 6) lastSweepBigRuns++
+                }
+            }
+        }
+        val doomed = ArrayList<Int>()
+        for (idx in marked.indices) if (marked[idx]) doomed.add(idx)
+        return doomed
+    }
+
+    private fun columnGravity() {
+        for (c in 0 until W) {
+            var write = 0
+            for (r in 0 until H) {
+                val v = board[r * W + c]
+                if (v != 0) {
+                    board[r * W + c] = 0
+                    board[write * W + c] = v
+                    write++
+                }
+            }
+        }
+    }
+
     private fun applyChroma() {
         val thr = chromaThreshold()
         if (thr > W * H) return
         var chain = 0
         while (chain < 8) {
-            val marked = BooleanArray(W * H)
-            for (r in 0 until H) {
-                var c = 0
-                while (c < W) {
-                    val start = c
-                    val color = board[r * W + c]
-                    if (color == 0) {
-                        c++
-                        continue
-                    }
-                    while (c < W && board[r * W + c] == color) c++
-                    if (c - start >= thr) for (x in start until c) marked[r * W + x] = true
-                }
-            }
-            for (c in 0 until W) {
-                var r = 0
-                while (r < H) {
-                    val start = r
-                    val color = board[r * W + c]
-                    if (color == 0) {
-                        r++
-                        continue
-                    }
-                    while (r < H && board[r * W + c] == color) r++
-                    if (r - start >= thr) for (y in start until r) marked[y * W + c] = true
-                }
-            }
-            val doomed = ArrayList<Int>()
-            for (idx in marked.indices) if (marked[idx]) doomed.add(idx)
+            val doomed = collectDoomed(thr)
             if (doomed.isEmpty()) break
             chain++
             val cells = IntArray(doomed.size * 3)
@@ -423,35 +493,21 @@ class GameState {
                 board[idx] = 0
             }
             score += 20L * doomed.size * level * chain
-            events.add(Event("chroma", chain, "", cells))
-            // column gravity: floaters fall straight down, may chain again
-            for (c in 0 until W) {
-                var write = 0
-                for (r in 0 until H) {
-                    val v = board[r * W + c]
-                    if (v != 0) {
-                        board[r * W + c] = 0
-                        board[write * W + c] = v
-                        write++
-                    }
-                }
+            // goal credit: Apprentice feeds the meter with every pop; Journeyman
+            // earns +2 line credits per 6+ run; Adept/Wizard pops are survival only
+            when (AppState.skill) {
+                0 -> goalProgress += doomed.size * 10f * chain
+                1 -> goalProgress += lastSweepBigRuns * 2f
             }
+            events.add(Event("chroma", chain, "", cells))
+            columnGravity()
         }
-    }
-
-    /** T-spin 3-corner rule around the T's center. */
-    private fun tCorners(): Int {
-        val cx = px + 1; val cy = py + 1
-        var n = 0
-        for (d in arrayOf(intArrayOf(0, 0), intArrayOf(2, 0), intArrayOf(0, 2), intArrayOf(2, 2))) {
-            if (at(px + d[0], py + d[1]) != 0) n++
-        }
-        return n
     }
 
     fun restart() {
         board.fill(0)
         score = 0; lines = 0; level = 1; combo = -1; b2b = false
+        initGoal()
         holdType = -1; gameOver = false; running = true
         clearingRows = emptyList()
         bag.clear(); nextQueue.clear(); nextColors.clear()

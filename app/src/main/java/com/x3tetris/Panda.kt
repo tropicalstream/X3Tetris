@@ -3,44 +3,11 @@ package com.x3tetris
 import kotlin.math.sin
 
 /**
- * The resident panda. A neon vector panda ambles through a bamboo grove in
- * the deep background, munching as it goes. On a Tetris it CHARGES across
+ * The resident panda. A neon vector panda face floats through a bamboo grove
+ * in the deep background, munching as it goes. On a Tetris it charges across
  * the foreground in a very un-panda-like burst of enthusiasm.
  */
 class Panda {
-    // side-view outline segments (x right, y up), chunky and unmistakably panda
-    private val outline = arrayOf(
-        // rump + back
-        floatArrayOf(-1.8f, -0.2f), floatArrayOf(-1.6f, 0.7f),
-        floatArrayOf(-1.6f, 0.7f), floatArrayOf(-0.2f, 1.0f),
-        // back legs (stout)
-        floatArrayOf(-1.7f, -1.6f), floatArrayOf(-1.8f, -0.2f),
-        floatArrayOf(-1.2f, -1.6f), floatArrayOf(-1.15f, -0.5f),
-        // belly
-        floatArrayOf(-1.5f, -0.55f), floatArrayOf(0.6f, -0.6f),
-        // front legs
-        floatArrayOf(0.45f, -1.6f), floatArrayOf(0.5f, -0.55f),
-        floatArrayOf(1.0f, -1.6f), floatArrayOf(1.05f, -0.3f),
-        // chest up to head
-        floatArrayOf(0.6f, -0.6f), floatArrayOf(1.15f, 0.5f),
-        floatArrayOf(-0.2f, 1.0f), floatArrayOf(0.55f, 1.05f),
-        // head (big round-ish)
-        floatArrayOf(0.55f, 1.05f), floatArrayOf(1.05f, 1.45f),
-        floatArrayOf(1.05f, 1.45f), floatArrayOf(1.75f, 1.35f),
-        floatArrayOf(1.75f, 1.35f), floatArrayOf(2.0f, 0.95f),
-        floatArrayOf(2.0f, 0.95f), floatArrayOf(1.7f, 0.55f),
-        floatArrayOf(1.7f, 0.55f), floatArrayOf(1.15f, 0.5f),
-        // round ears
-        floatArrayOf(0.85f, 1.4f), floatArrayOf(0.75f, 1.75f),
-        floatArrayOf(0.75f, 1.75f), floatArrayOf(1.05f, 1.7f),
-        floatArrayOf(1.5f, 1.45f), floatArrayOf(1.55f, 1.8f),
-        floatArrayOf(1.55f, 1.8f), floatArrayOf(1.85f, 1.6f),
-        // eye patches (the signature)
-        floatArrayOf(1.25f, 1.15f), floatArrayOf(1.45f, 0.95f),
-        floatArrayOf(1.55f, 1.1f), floatArrayOf(1.75f, 0.95f),
-        // held bamboo stalk, mid-munch
-        floatArrayOf(1.9f, 0.55f), floatArrayOf(1.45f, -0.7f))
-
     var charge = 0f          // >0 while charging the foreground
     private var t = 0f
     private val rgb = FloatArray(3)
@@ -75,34 +42,60 @@ class Panda {
                 x = nx; y = ny
             }
         }
-        // ambient panda: ambles through the grove, nodding while it munches
-        drawAt(batch, -16f + (t * 0.5f) % 36f, -5.2f, -26f, 1.4f, hueBase + 0.55f, 0.5f)
+        // ambient panda: a front-facing head through the grove, nodding while it munches
+        drawAt(batch, -16f + (t * 0.5f) % 36f, -5.2f, -26f, 1.68f, hueBase + 0.55f, 0.5f)
         if (charge > 0f) {
-            // TETRIS! the panda forgets it is famously sedentary
+            // TETRIS! the panda face rushes across the glass
             val p = 1f - charge / 3.2f
             val x = -22f + p * 46f
-            drawAt(batch, x, -3.5f + sin(t * 14f) * 0.6f, 6f, 3.4f, hueBase, 1f,
-                run = sin(t * 16f) * 0.35f)
+            drawAt(batch, x, -3.5f + sin(t * 14f) * 0.6f, 6f, 4.08f, hueBase, 1f,
+                run = sin(t * 16f) * 0.18f)
         }
     }
 
     private fun drawAt(batch: LineBatch, x: Float, y: Float, z: Float, s: Float,
                        hue: Float, alpha: Float, run: Float = 0f) {
         GlUtil.hue(hue, rgb)
-        val nod = sin(t * 2.1f) * 0.07f
-        var i = 0
-        while (i < outline.size) {
-            val a = outline[i]; val b = outline[i + 1]
-            // stout legs pump when charging (y < -0.5 == leg points)
-            val ga = if (a[1] < -0.5f) run * (if (a[0] < 0) 1f else -1f) else nod
-            val gb = if (b[1] < -0.5f) run * (if (b[0] < 0) 1f else -1f) else nod
-            batch.line(x + (a[0] + ga) * s, y + a[1] * s, z,
-                x + (b[0] + gb) * s, y + b[1] * s, z,
-                rgb[0], rgb[1], rgb[2], alpha)
-            i += 2
+        val nod = sin(t * 2.1f) * 0.08f + run
+
+        // unmistakable front-facing panda: round head, two round ears.
+        oval(batch, x, y + nod * s, z, 1.28f * s, 1.05f * s, rgb[0], rgb[1], rgb[2], alpha)
+        oval(batch, x - 0.82f * s, y + (0.78f + nod) * s, z, 0.36f * s, 0.34f * s, rgb[0], rgb[1], rgb[2], alpha)
+        oval(batch, x + 0.82f * s, y + (0.78f + nod) * s, z, 0.36f * s, 0.34f * s, rgb[0], rgb[1], rgb[2], alpha)
+
+        // black eye patches as tilted neon loops, with bright pupils inside.
+        GlUtil.hue(hue + 0.58f, rgb2, 0.8f, 0.9f)
+        oval(batch, x - 0.43f * s, y + (0.28f + nod) * s, z, 0.34f * s, 0.48f * s, rgb2[0], rgb2[1], rgb2[2], alpha)
+        oval(batch, x + 0.43f * s, y + (0.28f + nod) * s, z, 0.34f * s, 0.48f * s, rgb2[0], rgb2[1], rgb2[2], alpha)
+        batch.glow(x - 0.43f * s, y + (0.31f + nod) * s, z, 4.6f * s / 1.4f, 1f, 1f, 1f, alpha)
+        batch.glow(x + 0.43f * s, y + (0.31f + nod) * s, z, 4.6f * s / 1.4f, 1f, 1f, 1f, alpha)
+
+        // muzzle, nose, tiny mouth.
+        oval(batch, x, y + (-0.28f + nod) * s, z, 0.42f * s, 0.28f * s, rgb[0], rgb[1], rgb[2], alpha)
+        batch.glow(x, y + (-0.18f + nod) * s, z, 5.5f * s / 1.4f, rgb2[0], rgb2[1], rgb2[2], alpha)
+        batch.line(x, y + (-0.23f + nod) * s, z, x, y + (-0.40f + nod) * s, z, rgb[0], rgb[1], rgb[2], alpha)
+        batch.line(x - 0.18f * s, y + (-0.45f + nod) * s, z, x, y + (-0.40f + nod) * s, z, rgb[0], rgb[1], rgb[2], alpha)
+        batch.line(x, y + (-0.40f + nod) * s, z, x + 0.18f * s, y + (-0.45f + nod) * s, z, rgb[0], rgb[1], rgb[2], alpha)
+
+        // Bamboo snack crossing the face.
+        GlUtil.hue(0.33f, rgb2, 0.95f, 0.95f)
+        batch.line(x + 0.15f * s, y + (-0.42f + nod) * s, z, x + 1.12f * s, y + (-0.75f + nod) * s, z,
+            rgb2[0], rgb2[1], rgb2[2], alpha)
+        batch.line(x + 0.48f * s, y + (-0.52f + nod) * s, z, x + 0.60f * s, y + (-0.32f + nod) * s, z,
+            rgb2[0], rgb2[1], rgb2[2], alpha * 0.8f)
+        batch.line(x + 0.78f * s, y + (-0.63f + nod) * s, z, x + 0.92f * s, y + (-0.42f + nod) * s, z,
+            rgb2[0], rgb2[1], rgb2[2], alpha * 0.8f)
+    }
+
+    private fun oval(batch: LineBatch, cx: Float, cy: Float, z: Float, rx: Float, ry: Float,
+                     r: Float, g: Float, b: Float, a: Float) {
+        val n = 24
+        for (i in 0 until n) {
+            val a0 = i / n.toFloat() * 6.283185f
+            val a1 = (i + 1) / n.toFloat() * 6.283185f
+            batch.line(cx + kotlin.math.cos(a0) * rx, cy + kotlin.math.sin(a0) * ry, z,
+                cx + kotlin.math.cos(a1) * rx, cy + kotlin.math.sin(a1) * ry, z,
+                r, g, b, a)
         }
-        // eyes inside the patches — always watching the well
-        batch.glow(x + 1.37f * s, y + 1.05f * s, z, 5f * s / 1.4f, 1f, 1f, 1f, alpha)
-        batch.glow(x + 1.66f * s, y + 1.02f * s, z, 5f * s / 1.4f, 1f, 1f, 1f, alpha)
     }
 }

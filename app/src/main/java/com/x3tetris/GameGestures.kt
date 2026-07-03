@@ -17,8 +17,8 @@ import kotlin.math.abs
  *   double tap ............. settings menu
  *   long press (600 ms) .... HOLD piece
  *
- * Drag-repeat: keep the finger moving and the piece keeps stepping every
- * REPEAT_PX — feels like DAS. SWAP AXES / INVERT in settings if your pad
+ * Drag-repeat: the first clear swipe moves one cell, then a deliberate longer
+ * drag repeats. SWAP AXES / INVERT in settings if your pad
  * reports differently.
  */
 class GameGestures(
@@ -33,8 +33,8 @@ class GameGestures(
         private const val TAP_MS = 220L
         private const val DOUBLE_MS = 320L
         private const val LONG_MS = 600L
-        private const val SLOP_PX = 30f
-        private const val REPEAT_PX = 70f
+        private const val SLOP_PX = 24f
+        private const val REPEAT_PX = 90f
     }
 
     private val handler = Handler(Looper.getMainLooper())
@@ -64,12 +64,14 @@ class GameGestures(
             MotionEvent.ACTION_MOVE -> {
                 val dx = gx - downX; val dy = gy - downY
                 if (abs(dx) > SLOP_PX || abs(dy) > SLOP_PX) moved = true
-                if (abs(dx) >= abs(dy)) {
-                    // horizontal drag: step per REPEAT_PX (DAS feel)
-                    val steps = (dx / REPEAT_PX).toInt()
+                if (abs(dx) >= abs(dy) && abs(dx) > SLOP_PX) {
+                    // Horizontal drag: one precise step first, then slower repeat.
+                    val mag = abs(dx)
+                    val steps = 1 + ((mag - SLOP_PX) / REPEAT_PX).toInt()
+                    val signedSteps = if (dx > 0f) steps else -steps
                     while (emittedH < abs(steps)) {
                         emittedH++
-                        var dir = if (steps > 0) 1 else -1
+                        var dir = if (signedSteps > 0) 1 else -1
                         if (AppState.invertMove) dir = -dir
                         onSwipeH(dir)
                     }

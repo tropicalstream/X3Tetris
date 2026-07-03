@@ -20,7 +20,8 @@ import kotlin.random.Random
 class GameRenderer(
     private val game: GameState,
     private val sfx: Sfx,
-    private val music: MusicPlayer
+    private val music: MusicPlayer,
+    private val voice: Voice
 ) : GLSurfaceView.Renderer {
 
     companion object { const val EYE_OFF = 0.05f }
@@ -61,6 +62,7 @@ class GameRenderer(
     // piece hues: I O T S Z J L (guideline colors, neonized)
     private val pieceHue = floatArrayOf(0.50f, 0.14f, 0.78f, 0.33f, 0.0f, 0.62f, 0.08f)
     private var chromaCardShown = false
+    private var almostSaidAtLevel = -1
 
     override fun onSurfaceCreated(gl: GL10?, config: EGLConfig?) {
         GLES20.glClearColor(0f, 0f, 0f, 1f)
@@ -144,6 +146,13 @@ class GameRenderer(
         consumeActions()
         if (AppState.phase == AppState.PHASE_PLAY && !AppState.paused && !AppState.menuOpen) {
             game.update((dt * 1000).toLong())
+            val nowMs = System.currentTimeMillis()
+            // gentle idle encouragement — at most once every ~2 minutes of quiet
+            if (nowMs - voice.lastSpokeAt > 115_000) voice.say("idle", 115_000, 1f)
+            // meter nearly drained: hype the finish (once per level)
+            if (game.goalFrac > 0.8f && almostSaidAtLevel != game.level) {
+                if (voice.say("almost", 40_000, 0.6f)) almostSaidAtLevel = game.level
+            }
         }
         drainEvents()
         particles.update(dt)
@@ -206,6 +215,7 @@ class GameRenderer(
         music.playForLevel(1)
         sfx.play("levelup", 0.9f)
         AppState.say("LEVEL 1 · GO!", 2000)
+        voice.say("welcome", cooldownMs = 0)
     }
 
     private fun drainEvents() {
@@ -224,6 +234,7 @@ class GameRenderer(
                     panda.tetris(); AppState.flash = 1f
                     AppState.say(e.text)
                     sfx.play("panda", 1f)
+                    voice.say("tetris", 50_000, 0.5f)
                 }
                 "tspinclear" -> { AppState.say(e.text); sfx.play("tspin") }
                 "chroma" -> {
@@ -245,17 +256,27 @@ class GameRenderer(
                 }
                 "message" -> AppState.say(e.text)
                 "combo" -> { AppState.say("COMBO ×${e.a} — BAMBOO!"); sfx.play("combo", 0.9f, 1f + e.a * 0.06f) }
+                "fireworks" -> {
+                    // level clear celebration: the board just chain-popped itself
+                    panda.tetris()
+                    AppState.flash = 1f
+                    AppState.say("LEVEL CLEAR!", 2600)
+                    sfx.play("tetris", 0.8f)
+                    voice.say("fireworks", 20_000, 0.9f)
+                }
                 "levelup" -> {
                     sfx.play("levelup")
                     music.playForLevel(e.a)
                     AppState.card("LEVEL ${e.a} · TETRIS HISTORY\n\n${e.text}", 7000)
                     AppState.flash = 0.6f
+                    voice.say("levelup", 30_000, 0.7f)
                 }
                 "gameover" -> {
                     AppState.phase = AppState.PHASE_OVER
                     sfx.play("gameover"); AppState.flash = 1f
                     music.pause()
                     burstAll()
+                    voice.say("gameover", cooldownMs = 0)
                 }
                 "restart" -> {}
             }
@@ -314,6 +335,24 @@ class GameRenderer(
         for (p in arrayOf(floatArrayOf(-5f, -10f), floatArrayOf(5f, -10f),
                 floatArrayOf(-5f, 10f), floatArrayOf(5f, 10f))) {
             blockBatch.line(p[0], p[1], 0f, p[0] * 1.6f, p[1] * 1.6f, -16f, rgb[0], rgb[1], rgb[2], 0.35f)
+        }
+
+        if (AppState.phase == AppState.PHASE_PLAY) {
+            // LEVEL GOAL METER: starts full, DRAINS as you score toward the goal —
+            // when the bar is gone, the level is finished (fireworks, next stage)
+            val remain = 1f - game.goalFrac
+            GlUtil.hue(hue + 0.25f, rgb, 1f, 1f)
+            frame(-7.1f, -10f, -6.4f, 10f, 0.7f)
+            val hgt = 20f * remain
+            var yy = -10f + 0.2f
+            while (yy < -10f + hgt) {
+                blockBatch.line(-7.02f, yy, 0f, -6.48f, yy, 0f, rgb[0], rgb[1], rgb[2], 0.38f)
+                yy += 0.4f
+            }
+            if (remain > 0.02f) {
+                batch.glow(-6.75f, -10f + hgt, 0f, 13f, rgb[0], rgb[1], rgb[2],
+                    0.55f + 0.35f * sin(t * 6f))
+            }
         }
 
         if (AppState.phase == AppState.PHASE_PLAY || AppState.phase == AppState.PHASE_OVER) {
@@ -444,7 +483,14 @@ class GameRenderer(
             }
             else -> {
                 val thr = game.chromaThreshold()
-                hudText.setText("SCORE ${"%,d".format(game.score)}\nLINES ${game.lines} · LVL ${game.level}" +
+                val left = (game.goalTarget - game.goalProgress).coerceAtLeast(0f).toInt()
+                val goalLine = when (AppState.skill) {
+                    0 -> "\nMETER: $left CHROMA PTS TO GO"
+                    2 -> "\nMETER: $left SPRINT LINES TO GO"
+                    3 -> "\nMETER: $left ROWS TO GO"
+                    else -> "\nMETER: $left LINE CREDITS TO GO"
+                }
+                hudText.setText("SCORE ${"%,d".format(game.score)}\nLINES ${game.lines} · LVL ${game.level}" + goalLine +
                         if (thr <= GameState.W * GameState.H) "\nCHROMA ≥$thr · ${AppState.SKILL_NAMES[AppState.skill]}"
                         else "\nWIZARD · ROWS ONLY")
                 hudText.draw(-0.62f, 0.78f, 0.12f, eyeAspect, 0.9f)
