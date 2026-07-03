@@ -9,7 +9,7 @@ import android.view.WindowManager
 import androidx.appcompat.app.AppCompatActivity
 
 /**
- * TETRA LLAMA 3D — host activity. Right temple pad (cyttsp5) is the game pad;
+ * X3TETRIS — host activity. Right temple pad (cyttsp5) is the game pad;
  * screen touches mirror it for flat testing. Tap places the piece; double-tap
  * opens settings; inside the menu: swipe up/down moves, tap selects,
  * double-tap exits.
