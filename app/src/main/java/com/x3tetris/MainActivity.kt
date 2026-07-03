@@ -1,4 +1,4 @@
-package com.tetrallama
+package com.x3tetris
 
 import android.annotation.SuppressLint
 import android.opengl.GLSurfaceView
@@ -33,7 +33,7 @@ class MainActivity : AppCompatActivity() {
         sfx = Sfx(this)
         sfx.preload("move", "rotate", "tick", "harddrop", "lock", "bump", "hold",
             "clear1", "clear2", "clear3", "tetris", "tspin", "combo",
-            "levelup", "gameover", "yak", "menu", "chroma")
+            "levelup", "gameover", "panda", "menu", "chroma")
         music = MusicPlayer(this)
 
         glView = GLSurfaceView(this).apply {
@@ -103,7 +103,7 @@ class MainActivity : AppCompatActivity() {
                 AppState.skill = (AppState.skill + 1) % 4
                 AppState.say("SKILL: ${AppState.SKILL_NAMES[AppState.skill]}" +
                         if (AppState.skill == 3) " — ROWS ONLY, FAST, ×1.5 SCORE"
-                        else " — COLOR POPS AT ${game.chromaThreshold()}+", 3200)
+                        else " — STRAIGHT RUNS POP AT ${game.chromaThreshold()}+", 3200)
             }
             3 -> { AppState.musicVol = step(AppState.musicVol); music.applyVolume() }
             4 -> { AppState.sfxVol = step(AppState.sfxVol); sfx.play("clear1") }

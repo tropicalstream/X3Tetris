@@ -1,4 +1,4 @@
-package com.tetrallama
+package com.x3tetris
 
 import android.opengl.GLES20
 import java.nio.FloatBuffer
@@ -8,7 +8,11 @@ import java.nio.FloatBuffer
  * an homage to the XY monitors Tempest was born on. Each frame the batch is
  * refilled and drawn TWICE: wide + faint (halo), thin + bright (core).
  */
-class LineBatch(private val maxLines: Int = 6000) {
+class LineBatch(
+    private val maxLines: Int = 6000,
+    private val haloWidth: Float = 6f,       // blur pass width
+    private val haloGain: Float = 0.35f      // blur pass brightness
+) {
     private val vsrc = """
         uniform mat4 uVP;
         attribute vec3 aPos;
@@ -102,9 +106,9 @@ class LineBatch(private val maxLines: Int = 6000) {
             buf.position(3)
             GLES20.glVertexAttribPointer(aColor, 4, GLES20.GL_FLOAT, false, 28, buf)
             GLES20.glEnableVertexAttribArray(aColor)
-            // pass 1: halo
-            GLES20.glLineWidth(6f)
-            GLES20.glUniform1f(uGain, 0.35f)
+            // pass 1: halo (configurable — blocks use a 30%-reduced blur)
+            GLES20.glLineWidth(haloWidth)
+            GLES20.glUniform1f(uGain, haloGain)
             GLES20.glDrawArrays(GLES20.GL_LINES, 0, fi / 7)
             // pass 2: core
             GLES20.glLineWidth(2.2f)

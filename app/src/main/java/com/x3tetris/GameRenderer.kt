@@ -1,4 +1,4 @@
-package com.tetrallama
+package com.x3tetris
 
 import android.opengl.GLES20
 import android.opengl.GLSurfaceView
@@ -15,7 +15,7 @@ import kotlin.random.Random
  *  · VIDEO FEEDBACK trails: each frame re-projects the previous frame,
  *    slightly zoomed + rotated + decayed — the classic T2K melt
  *  · hue cycles forever; level ups shift the palette; Tetrises flash white
- *  · a neon llama patrols the deep background and stampedes on Tetrises
+ *  · a neon panda in a bamboo grove charges the screen on Tetrises
  */
 class GameRenderer(
     private val game: GameState,
@@ -27,7 +27,9 @@ class GameRenderer(
 
     private val batch = LineBatch()
     private val particles = Particles()
-    private val llama = Llama()
+    private val panda = Panda()
+    // blocks/well batch: 30% less halo blur than the background fx batch
+    private val blockBatch = LineBatch(6000, haloWidth = 4.2f, haloGain = 0.245f)
     private val hudText = NeonText(512, 256, 40f, 16)
     private val msgText = NeonText(1024, 256, 88f, 18)
     private val cardText = NeonText(1200, 512, 52f, 34)
@@ -63,7 +65,7 @@ class GameRenderer(
     override fun onSurfaceCreated(gl: GL10?, config: EGLConfig?) {
         GLES20.glClearColor(0f, 0f, 0f, 1f)
         GLES20.glDisable(GLES20.GL_DEPTH_TEST)      // vectors: painter's order, additive
-        batch.init()
+        batch.init(); blockBatch.init()
         hudText.init(); msgText.init(); cardText.init(); menuText.init(); bigText.init()
         for (i in 0 until 120) {
             stars[i * 3] = (rnd.nextFloat() - 0.5f) * 70f
@@ -145,7 +147,7 @@ class GameRenderer(
         }
         drainEvents()
         particles.update(dt)
-        llama.update(dt)
+        panda.update(dt)
 
         // ---- pass 1: feedback + vectors into the current FBO ----
         GLES20.glBindFramebuffer(GLES20.GL_FRAMEBUFFER, fbo[cur])
@@ -161,9 +163,10 @@ class GameRenderer(
             val ey = 1.2f + sin(timeSec * 0.09f) * 0.9f
             Matrix.setLookAtM(view, 0, ex, ey, 27f, 0f, 0f, 0f, 0f, 1f, 0f)
             Matrix.multiplyMM(vp, 0, proj, 0, view, 0)
-            batch.begin()
+            batch.begin(); blockBatch.begin()
             emitScene()
-            batch.draw(vp)
+            batch.draw(vp)          // background fx: full neon glow
+            blockBatch.draw(vp)     // well + blocks: crisper, -30% blur
         }
         GLES20.glBindFramebuffer(GLES20.GL_FRAMEBUFFER, 0)
 
@@ -218,13 +221,13 @@ class GameRenderer(
                     if (e.a >= 3) AppState.flash = 0.5f
                 }
                 "tetris" -> {
-                    llama.tetris(); AppState.flash = 1f
+                    panda.tetris(); AppState.flash = 1f
                     AppState.say(e.text)
-                    sfx.play("yak", 1f)
+                    sfx.play("panda", 1f)
                 }
                 "tspinclear" -> { AppState.say(e.text); sfx.play("tspin") }
                 "chroma" -> {
-                    // color-group pop: bursts in the group's own colors, chain pitch rises
+                    // straight color-run pop: bursts in the group's own colors, chain pitch rises
                     var i = 0
                     while (i < e.cells.size) {
                         val c = e.cells[i]; val r = e.cells[i + 1]; val v = e.cells[i + 2]
@@ -236,12 +239,12 @@ class GameRenderer(
                     if (e.a >= 2) AppState.say("CHROMA CHAIN ×${e.a} — TASTY", 1800)
                     if (!chromaCardShown) {
                         chromaCardShown = true
-                        AppState.card("CHROMA RULE · TETRIS 2 (1993)\n\nColor-matching came to Tetris in 1993.\nConnected same-color blocks pop at ${game.chromaThreshold()}+ —\nthe bar rises as you level. Wizards get nothing.", 6500)
+                        AppState.card("CHROMA RULE · TETRIS 2 (1993)\n\nColor-matching came to Tetris in 1993.\nStraight same-color rows or columns pop at ${game.chromaThreshold()}+.\nWizards get nothing.", 6500)
                     }
                     AppState.flash = (AppState.flash + 0.15f).coerceAtMost(0.6f)
                 }
                 "message" -> AppState.say(e.text)
-                "combo" -> { AppState.say("COMBO ×${e.a} — MOO?"); sfx.play("combo", 0.9f, 1f + e.a * 0.06f) }
+                "combo" -> { AppState.say("COMBO ×${e.a} — BAMBOO!"); sfx.play("combo", 0.9f, 1f + e.a * 0.06f) }
                 "levelup" -> {
                     sfx.play("levelup")
                     music.playForLevel(e.a)
@@ -295,22 +298,22 @@ class GameRenderer(
             val tw = 0.4f + 0.6f * sin(t * 1.7f + i).coerceAtLeast(0f)
             batch.glow(stars[i * 3], stars[i * 3 + 1], stars[i * 3 + 2], 5f, rgb2[0], rgb2[1], rgb2[2], tw * 0.5f)
         }
-        llama.emit(batch, hue)
+        panda.emit(batch, hue)
         // well frame (hue-cycled) + inner grid
         GlUtil.hue(hue, rgb, 1f, 1f)
         frame(-5f, -10f, 5f, 10f, 0.9f)
         GlUtil.hue(hue + 0.08f, rgb, 1f, 0.4f)
         for (c in 1 until GameState.W) {
-            batch.line(c - 5f, -10f, 0f, c - 5f, 10f, 0f, rgb[0], rgb[1], rgb[2], 0.10f)
+            blockBatch.line(c - 5f, -10f, 0f, c - 5f, 10f, 0f, rgb[0], rgb[1], rgb[2], 0.10f)
         }
         for (r in 1 until GameState.VISIBLE_H) {
-            batch.line(-5f, r - 10f, 0f, 5f, r - 10f, 0f, rgb[0], rgb[1], rgb[2], 0.10f)
+            blockBatch.line(-5f, r - 10f, 0f, 5f, r - 10f, 0f, rgb[0], rgb[1], rgb[2], 0.10f)
         }
         // depth rails: the well recedes (3D!)
         GlUtil.hue(hue + 0.15f, rgb, 1f, 0.8f)
         for (p in arrayOf(floatArrayOf(-5f, -10f), floatArrayOf(5f, -10f),
                 floatArrayOf(-5f, 10f), floatArrayOf(5f, 10f))) {
-            batch.line(p[0], p[1], 0f, p[0] * 1.6f, p[1] * 1.6f, -16f, rgb[0], rgb[1], rgb[2], 0.35f)
+            blockBatch.line(p[0], p[1], 0f, p[0] * 1.6f, p[1] * 1.6f, -16f, rgb[0], rgb[1], rgb[2], 0.35f)
         }
 
         if (AppState.phase == AppState.PHASE_PLAY || AppState.phase == AppState.PHASE_OVER) {
@@ -330,28 +333,29 @@ class GameRenderer(
                     val gy = game.ghostY
                     for (cell in GameState.SHAPES[game.pieceType][game.rot]) {
                         cube(game.px + cell[0] - 5f + 0.5f, gy + cell[1] - 10f + 0.5f,
-                            0.44f, pieceHue[game.pieceType], 0.20f, 0.7f, false)
+                            0.44f, pieceHue[game.pieceColor], 0.20f, 0.7f, false)
                     }
                 }
                 // falling piece: brightest thing in the well
                 for (cell in GameState.SHAPES[game.pieceType][game.rot]) {
                     val x = game.px + cell[0] - 5f + 0.5f
                     val y = game.py + cell[1] - 10f + 0.5f
-                    cube(x, y, 0.48f, pieceHue[game.pieceType], 1f, 1.5f, true)
+                    cube(x, y, 0.48f, pieceHue[game.pieceColor], 1f, 1.5f, true)
                 }
             }
             // hold (left) + next 3 (right) minis
-            if (game.holdType >= 0) mini(game.holdType, -8.6f, 6.5f)
-            game.nextQueue.forEachIndexed { i, tpe -> mini(tpe, 8.6f, 6.5f - i * 3.2f) }
+            if (game.holdType >= 0) mini(game.holdType, game.holdColor, -8.6f, 6.5f)
+            game.nextQueue.forEachIndexed { i, tpe ->
+                mini(tpe, game.nextColors.elementAt(i), 8.6f, 6.5f - i * 3.2f) }
         }
         particles.emit(batch)
     }
 
     private fun frame(x0: Float, y0: Float, x1: Float, y1: Float, a: Float) {
-        batch.line(x0, y0, 0f, x1, y0, 0f, rgb[0], rgb[1], rgb[2], a)
-        batch.line(x0, y1, 0f, x1, y1, 0f, rgb[0], rgb[1], rgb[2], a)
-        batch.line(x0, y0, 0f, x0, y1, 0f, rgb[0], rgb[1], rgb[2], a)
-        batch.line(x1, y0, 0f, x1, y1, 0f, rgb[0], rgb[1], rgb[2], a)
+        blockBatch.line(x0, y0, 0f, x1, y0, 0f, rgb[0], rgb[1], rgb[2], a)
+        blockBatch.line(x0, y1, 0f, x1, y1, 0f, rgb[0], rgb[1], rgb[2], a)
+        blockBatch.line(x0, y0, 0f, x0, y1, 0f, rgb[0], rgb[1], rgb[2], a)
+        blockBatch.line(x1, y0, 0f, x1, y1, 0f, rgb[0], rgb[1], rgb[2], a)
     }
 
     /** Neon wireframe cube for one cell (front + back square + connectors). */
@@ -359,28 +363,28 @@ class GameRenderer(
         GlUtil.hue(h, rgb, 1f, bright)
         val z0 = r; val z1 = -r
         // front square
-        batch.line(cx - r, cy - r, z0, cx + r, cy - r, z0, rgb[0], rgb[1], rgb[2], a)
-        batch.line(cx + r, cy - r, z0, cx + r, cy + r, z0, rgb[0], rgb[1], rgb[2], a)
-        batch.line(cx + r, cy + r, z0, cx - r, cy + r, z0, rgb[0], rgb[1], rgb[2], a)
-        batch.line(cx - r, cy + r, z0, cx - r, cy - r, z0, rgb[0], rgb[1], rgb[2], a)
+        blockBatch.line(cx - r, cy - r, z0, cx + r, cy - r, z0, rgb[0], rgb[1], rgb[2], a)
+        blockBatch.line(cx + r, cy - r, z0, cx + r, cy + r, z0, rgb[0], rgb[1], rgb[2], a)
+        blockBatch.line(cx + r, cy + r, z0, cx - r, cy + r, z0, rgb[0], rgb[1], rgb[2], a)
+        blockBatch.line(cx - r, cy + r, z0, cx - r, cy - r, z0, rgb[0], rgb[1], rgb[2], a)
         // back square (dimmer)
         val ab = a * 0.5f
-        batch.line(cx - r, cy - r, z1, cx + r, cy - r, z1, rgb[0], rgb[1], rgb[2], ab)
-        batch.line(cx + r, cy - r, z1, cx + r, cy + r, z1, rgb[0], rgb[1], rgb[2], ab)
-        batch.line(cx + r, cy + r, z1, cx - r, cy + r, z1, rgb[0], rgb[1], rgb[2], ab)
-        batch.line(cx - r, cy + r, z1, cx - r, cy - r, z1, rgb[0], rgb[1], rgb[2], ab)
+        blockBatch.line(cx - r, cy - r, z1, cx + r, cy - r, z1, rgb[0], rgb[1], rgb[2], ab)
+        blockBatch.line(cx + r, cy - r, z1, cx + r, cy + r, z1, rgb[0], rgb[1], rgb[2], ab)
+        blockBatch.line(cx + r, cy + r, z1, cx - r, cy + r, z1, rgb[0], rgb[1], rgb[2], ab)
+        blockBatch.line(cx - r, cy + r, z1, cx - r, cy - r, z1, rgb[0], rgb[1], rgb[2], ab)
         // connectors
-        batch.line(cx - r, cy - r, z0, cx - r, cy - r, z1, rgb[0], rgb[1], rgb[2], ab)
-        batch.line(cx + r, cy - r, z0, cx + r, cy - r, z1, rgb[0], rgb[1], rgb[2], ab)
-        batch.line(cx + r, cy + r, z0, cx + r, cy + r, z1, rgb[0], rgb[1], rgb[2], ab)
-        batch.line(cx - r, cy + r, z0, cx - r, cy + r, z1, rgb[0], rgb[1], rgb[2], ab)
-        if (glow) batch.glow(cx, cy, z0, 16f, rgb[0], rgb[1], rgb[2], a * 0.5f)
+        blockBatch.line(cx - r, cy - r, z0, cx - r, cy - r, z1, rgb[0], rgb[1], rgb[2], ab)
+        blockBatch.line(cx + r, cy - r, z0, cx + r, cy - r, z1, rgb[0], rgb[1], rgb[2], ab)
+        blockBatch.line(cx + r, cy + r, z0, cx + r, cy + r, z1, rgb[0], rgb[1], rgb[2], ab)
+        blockBatch.line(cx - r, cy + r, z0, cx - r, cy + r, z1, rgb[0], rgb[1], rgb[2], ab)
+        if (glow) blockBatch.glow(cx, cy, z0, 11f, rgb[0], rgb[1], rgb[2], a * 0.5f)
     }
 
-    private fun mini(type: Int, ox: Float, oy: Float) {
+    private fun mini(type: Int, color: Int, ox: Float, oy: Float) {
         for (cell in GameState.SHAPES[type][0]) {
             cube(ox + (cell[0] - 1.5f) * 0.55f, oy + (cell[1] - 1f) * 0.55f, 0.24f,
-                pieceHue[type], 0.8f, 1f, false)
+                pieceHue[color.coerceIn(0, 6)], 0.8f, 1f, false)
         }
     }
 
@@ -427,15 +431,15 @@ class GameRenderer(
         val now = System.currentTimeMillis()
         when (AppState.phase) {
             AppState.PHASE_TITLE -> {
-                bigText.setText("TETRA LLAMA 3D")
+                bigText.setText("X3TETRIS")
                 bigText.draw(0f, 0.45f, 0.16f, eyeAspect, 0.8f + 0.2f * sin(timeSec * 3f))
-                cardText.setText("TAP · PLACE PIECE (hard drop)\nSWIPE FWD/BACK · MOVE\nSWIPE UP · SPIN  DOWN · SOFT DROP\nHOLD · KEEP A PIECE FOR LATER\nDOUBLE-TAP · SETTINGS\n\nSKILL: ${AppState.SKILL_NAMES[AppState.skill]} — color groups of ${if (AppState.skill == 3) "∞ (rows only!)" else "${game.chromaThreshold()}+"} pop.\n40 YEARS OF TETRIS, ONE NEON WELL.\nTAP TO BEGIN.")
+                cardText.setText("TAP · PLACE PIECE (hard drop)\nSWIPE FWD/BACK · MOVE\nSWIPE UP · SPIN  DOWN · SOFT DROP\nHOLD · KEEP A PIECE FOR LATER\nDOUBLE-TAP · SETTINGS\n\nSKILL: ${AppState.SKILL_NAMES[AppState.skill]} — same-color rows/columns of ${if (AppState.skill == 3) "∞ (rows only!)" else "${game.chromaThreshold()}+"} pop.\n40 YEARS OF TETRIS, ONE NEON WELL.\nTAP TO BEGIN.")
                 cardText.draw(0f, -0.35f, 0.32f, eyeAspect, 0.95f)
             }
             AppState.PHASE_OVER -> {
                 bigText.setText("GAME OVER\n${"%,d".format(game.score)}")
                 bigText.draw(0f, 0.25f, 0.22f, eyeAspect, 0.95f)
-                cardText.setText("LINES ${game.lines} · LEVEL ${game.level}\nTHE LLAMA REMEMBERS.\nTAP TO GO AGAIN.")
+                cardText.setText("LINES ${game.lines} · LEVEL ${game.level}\nTHE PANDA REMEMBERS.\nTAP TO GO AGAIN.")
                 cardText.draw(0f, -0.42f, 0.2f, eyeAspect, 0.9f)
             }
             else -> {

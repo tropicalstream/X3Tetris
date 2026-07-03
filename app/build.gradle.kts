@@ -4,11 +4,11 @@ plugins {
 }
 
 android {
-    namespace = "com.tetrallama"
+    namespace = "com.x3tetris"
     compileSdk = 35
 
     defaultConfig {
-        applicationId = "com.tetrallama"
+        applicationId = "com.x3tetris"
         minSdk = 29
         targetSdk = 35
         versionCode = 1

@@ -1,10 +1,11 @@
-# TETRA LLAMA 3D
+# X3TETRIS
 
 A 3D Tetris for the **RayNeo X3 Pro** wearing the soul of **Tempest 2000**:
 everything is glowing additive vector lines, the screen melts with video-
 feedback trails, line clears detonate into particles, the palette never stops
-hue-cycling, and — as Llamasoft law requires — a neon llama patrols the
-background and **stampedes across your face when you score a Tetris**.
+hue-cycling, and — as the house style demands — a neon panda ambles through a swaying
+bamboo grove in the background and **charges across your face when you
+score a Tetris**.
 
 Stereo side-by-side rendering (same pipeline as Project Pale Blue), RayNeo
 Mercury registration, fully offline.
@@ -29,26 +30,26 @@ level-up shows the next chapter of Tetris history:
 | **Back-to-Back ×1.5** | 2006 |
 | **Combos** | 2007 |
 | Music-reactive levels (your MP3s) | Tetris Effect 2018, in spirit |
-| Llamas, feedback trails, absurd shouts | Tempest 2000, 1994. Obviously. |
+| Feedback trails, particle bangs, absurd shouts | Tempest 2000, 1994. Obviously. |
 
 Scoring: 100/300/500/800 × level; T-spins 800/1200/1600; B2B ×1.5;
 combos 50 × n × level; soft drop +1/cell; hard drop +2/cell.
 
 ## Skill tiers & the CHROMA rule
 
-Settings → SKILL. Connected **same-color groups pop automatically** once they
-reach a threshold (a nod to *Tetris 2*, 1993, when color-matching entered the
-family). The threshold starts small and **rises by one every two levels**, so
-every run drifts from playground to gauntlet. Pops cascade: floaters fall
-straight down and can chain (×2, ×3… — 20 × blocks × level × chain points).
+Settings -> SKILL. Straight horizontal or vertical **same-color runs pop
+automatically** once they reach a threshold (a nod to *Tetris 2*, 1993, when
+color-matching entered the family). Apprentice starts forgiving without letting
+single tetrominoes erase themselves. Pops cascade: floaters fall straight down
+and can chain (x2, x3... — 20 x blocks x level x chain points).
 Chroma pops never advance the line counter — leveling stays honest rows.
 
-| Tier | Color pop at L1 | Cap | Gravity | Lock delay |
-| --- | --- | --- | --- | --- |
-| **APPRENTICE** | 4+ connected (super easy) | 8 | ×0.55 | 700 ms |
-| **JOURNEYMAN** | 5+ | 10 | ×0.8 | 600 ms |
-| **ADEPT** | 7+ | 12 | ×1.0 | 500 ms |
-| **WIZARD** | never — rows only | — | ×1.35 | 400 ms, ×1.5 score |
+| Tier | Color run pops at | Gravity | Lock delay |
+| --- | --- | --- | --- |
+| **APPRENTICE** | 8+ in a row/column | x0.55 | 700 ms |
+| **JOURNEYMAN** | 10+ in a row/column | x0.8 | 600 ms |
+| **ADEPT** | 12+ in a row/column | x1.0 | 500 ms |
+| **WIZARD** | never — rows only | x1.35 | 400 ms, x1.5 score |
 
 ## Controls (right temple pad)
 
@@ -79,5 +80,5 @@ so it runs on a phone for testing.
 
 ## Repo
 
-This game lives in its own directory and its own git repository, on branch
+X3Tetris lives in its own directory and its own git repository, on branch
 `neon-tetris` — independent of Project Pale Blue next door.

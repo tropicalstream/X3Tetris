@@ -1,4 +1,4 @@
-package com.tetrallama
+package com.x3tetris
 
 import android.opengl.GLES20
 import android.util.Log

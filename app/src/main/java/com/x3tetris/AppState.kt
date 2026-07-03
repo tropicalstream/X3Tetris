@@ -1,4 +1,4 @@
-package com.tetrallama
+package com.x3tetris
 
 /** Lock-free blackboard between input (main thread) and the GL/game thread. */
 object AppState {
@@ -22,8 +22,8 @@ object AppState {
 
     /**
      * SKILL: 0 Apprentice · 1 Journeyman · 2 Adept · 3 Wizard.
-     * Governs the CHROMA rule (connected same-color groups pop at a threshold
-     * that starts small and grows each level — Tetris 2, 1993, says hello),
+     * Governs the CHROMA rule (straight same-color rows/columns pop at a
+     * skill threshold — Tetris 2, 1993, says hello),
      * plus gravity multiplier and lock delay. Wizard = pure classic rows, fast.
      */
     @Volatile var skill = 0

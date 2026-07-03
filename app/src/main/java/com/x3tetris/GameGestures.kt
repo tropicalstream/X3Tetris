@@ -1,4 +1,4 @@
-package com.tetrallama
+package com.x3tetris
 
 import android.os.Handler
 import android.os.Looper

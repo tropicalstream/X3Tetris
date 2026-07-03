@@ -1,5 +1,5 @@
 <resources>
-    <style name="Theme.TetraLlama" parent="Theme.AppCompat.NoActionBar">
+    <style name="Theme.X3Tetris" parent="Theme.AppCompat.NoActionBar">
         <item name="android:windowBackground">@android:color/black</item>
         <item name="android:windowFullscreen">true</item>
     </style>

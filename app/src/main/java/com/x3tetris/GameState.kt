@@ -1,4 +1,4 @@
-package com.tetrallama
+package com.x3tetris
 
 import kotlin.random.Random
 
@@ -94,14 +94,14 @@ class GameState {
             "2004 · T-SPINS\nTwist a T into an impossible slot for bonus points.\nThe move that turned stacking into judo.",
             "2006 · BACK-TO-BACK\nChain Tetrises and T-spins for multiplied glory.\nDifficult clears finally pay rent.",
             "2007 · COMBOS\nConsecutive clears stack bonuses.\nThe well becomes a drum solo.",
-            "1994 · MEANWHILE...\nJeff Minter's TEMPEST 2000 proves vectors + particles\n+ llamas = enlightenment. This game's entire soul.",
+            "1994 · MEANWHILE...\nJeff Minter's TEMPEST 2000 proves vectors + particles\n+ pure absurdity = enlightenment. This game's entire soul.",
             "2018 · TETRIS EFFECT\nSynesthesia: the game becomes music.\n(Your MP3s per level — same idea. Drop them in.)",
-            "TODAY · YOU\nAll of it — bag, kicks, hold, ghost, B2B —\nfalling through one neon well on your face. Onward.")
+            "TODAY · YOU\nAll of it — bag, kicks, hold, ghost, B2B —\nfalling through one neon well on your face.\nThe panda is proud. Onward.")
 
-        val TETRIS_SHOUTS = arrayOf("SUPERZAPPER!!", "YAK ATTACK!", "ABSOLUTELY LLAMA",
-            "EAT ELECTRIC DEATH", "FOUR-LINE FRENZY", "OX-CELLENT!!", "GROOVY.")
+        val TETRIS_SHOUTS = arrayOf("SUPERZAPPER!!", "PANDA SLAM!", "ABSOLUTELY BAMBOO",
+            "EAT ELECTRIC DEATH", "FOUR-LINE FRENZY", "BEAR-ILLIANT!!", "GROOVY.")
         val TSPIN_SHOUTS = arrayOf("SPIN DOCTOR", "TWISTY BEAST", "T FOR TREMENDOUS", "MIND THE KICK")
-        val B2B_SHOUTS = arrayOf("BACK-2-BACK BLISS", "CHAIN OF GLORY", "THE LLAMA NODS")
+        val B2B_SHOUTS = arrayOf("BACK-2-BACK BLISS", "CHAIN OF GLORY", "THE PANDA NODS")
         val LEVEL_SHOUTS = arrayOf("WARP LEVEL", "FASTER, FLUFFIER", "THE WELL HUNGERS")
     }
 
@@ -118,6 +118,9 @@ class GameState {
     var px = 3; private set
     var py = 18; private set
     var holdType = -1; private set
+    var pieceColor = 0; private set
+    var holdColor = -1; private set
+    val nextColors = ArrayDeque<Int>()
     private var holdUsed = false
     private val bag = ArrayDeque<Int>()
     val nextQueue = ArrayDeque<Int>()
@@ -135,7 +138,7 @@ class GameState {
     private val rnd = Random(System.nanoTime())
     private val shoutBags = HashMap<String, MutableList<String>>()
 
-    init { refillBag(); repeat(3) { nextQueue.add(drawBag()) }; spawn() }
+    init { refillBag(); repeat(3) { val s = drawBag(); nextQueue.add(s); nextColors.add(rollColor(s)) }; spawn() }
 
     // ---- helpers ----
     private fun refillBag() { bag.addAll((0..6).shuffled(rnd)) }
@@ -157,11 +160,16 @@ class GameState {
 
     private fun grounded() = collides(pieceType, rot, px, py - 1)
 
-    /** Guideline gravity curve: seconds per row (scaled by skill tier). */
+    /**
+     * Guideline gravity curve with a per-tier RAMP: Apprentice speeds up
+     * gently (levels count half), Adept a little faster with each level
+     * (1.1x), Wizard steep (1.3x). The multiplier sets each tier's floor.
+     */
     private fun gravitySec(): Float {
-        val l = (level - 1).coerceAtMost(19)
-        var t = 1.0
-        repeat(l) { t *= (0.8 - (level - 1) * 0.007).coerceAtLeast(0.05) }
+        val ramp = when (AppState.skill) { 0 -> 0.5f; 1 -> 0.75f; 2 -> 1.1f; else -> 1.3f }
+        val eff = (1f + (level - 1) * ramp).coerceAtMost(20f)
+        val base = (0.8f - (eff - 1f) * 0.007f).coerceAtLeast(0.05f)
+        val t = Math.pow(base.toDouble(), (eff - 1f).toDouble())
         val mult = when (AppState.skill) { 0 -> 0.55f; 1 -> 0.8f; 2 -> 1f; else -> 1.35f }
         return (t.toFloat() / mult).coerceAtLeast(0.016f)
     }
@@ -170,17 +178,32 @@ class GameState {
         when (AppState.skill) { 0 -> 700L; 1 -> 600L; 2 -> 500L; else -> 400L }
 
     /**
-     * THE CHROMA RULE (skill-driven): connected same-color groups of at least
-     * this many blocks pop on their own. Starts forgiving at level 1 and grows
-     * one block every two levels — the game slowly takes the training wheels
-     * away. Wizard tier disables it entirely: rows or nothing.
+     * THE CHROMA RULE (skill-driven): straight horizontal/vertical same-color
+     * runs of at least this many blocks pop on their own. Wizard tier disables
+     * it entirely: rows or nothing.
      */
     fun chromaThreshold(): Int = when (AppState.skill) {
-        0 -> (4 + (level - 1) / 2).coerceAtMost(8)      // super easy start
-        1 -> (5 + (level - 1) / 2).coerceAtMost(10)
-        2 -> (7 + (level - 1) / 2).coerceAtMost(12)
+        0 -> 8
+        1 -> 10
+        2 -> 12
         else -> Int.MAX_VALUE                            // wizard: earn your clears
     }
+
+    /**
+     * PALETTE SIZE BY SKILL: Apprentice starts with only 3 block colors
+     * (big friendly same-color groups), growing to 5 across levels;
+     * Journeyman 4->6; Adept 4->7; Wizard plays classic shape colors, all 7.
+     */
+    private val COLOR_ORDER = intArrayOf(0, 4, 1, 2, 3, 5, 6)  // cyan red yellow purple green blue orange
+    fun colorCount(): Int = when (AppState.skill) {
+        0 -> (3 + (level - 1) / 3).coerceAtMost(5)
+        1 -> (4 + (level - 1) / 3).coerceAtMost(6)
+        2 -> (4 + (level - 1) / 2).coerceAtMost(7)
+        else -> 7
+    }
+
+    private fun rollColor(shape: Int): Int =
+        if (AppState.skill == 3) shape else COLOR_ORDER[rnd.nextInt(colorCount())]
 
     private fun shout(pool: Array<String>, key: String): String {
         val bagList = shoutBags.getOrPut(key) { mutableListOf() }
@@ -191,7 +214,9 @@ class GameState {
     // ---- flow ----
     private fun spawn() {
         pieceType = nextQueue.removeFirst()
-        nextQueue.add(drawBag())
+        pieceColor = nextColors.removeFirst()
+        val s = drawBag()
+        nextQueue.add(s); nextColors.add(rollColor(s))
         rot = 0
         px = if (pieceType == 0) 3 else 3
         py = 18
@@ -275,11 +300,11 @@ class GameState {
     fun holdPiece(): Boolean {
         if (!running || holdUsed) return false
         holdUsed = true
-        val h = holdType
-        holdType = pieceType
+        val h = holdType; val hc = holdColor
+        holdType = pieceType; holdColor = pieceColor
         events.add(Event("hold"))
         if (h < 0) spawn() else {
-            pieceType = h; rot = 0; px = 3; py = 18
+            pieceType = h; pieceColor = hc; rot = 0; px = 3; py = 18
             gravityAcc = 0f; lockTimerMs = -1; lockResets = 0; lastActionRotate = false
             if (collides(pieceType, rot, px, py)) { gameOver = true; running = false; events.add(Event("gameover")) }
         }
@@ -291,7 +316,7 @@ class GameState {
         val tSpin = pieceType == 2 && lastActionRotate && tCorners() >= 3
         for (c in cells(pieceType, rot)) {
             val x = px + c[0]; val y = py + c[1]
-            if (y in 0 until H) board[y * W + x] = pieceType + 1
+            if (y in 0 until H) board[y * W + x] = pieceColor + 1
         }
         events.add(Event("lock"))
         val full = (0 until H).filter { r -> (0 until W).all { board[r * W + it] != 0 } }
@@ -350,8 +375,9 @@ class GameState {
     // ---------------- chroma (skill) mechanic ----------------
 
     /**
-     * Flood-fills same-color groups; any group >= chromaThreshold() pops,
-     * columns compact downward, and cascades chain (×2, ×3 …). Scoring:
+     * Finds straight same-color horizontal/vertical runs; any run of at least
+     * chromaThreshold() pops, columns compact downward, and cascades chain.
+     * Scoring:
      * 20 × blocks × level × chain. Chroma pops do NOT advance the line
      * counter — leveling stays honest row-clearing, as tradition demands.
      */
@@ -360,27 +386,35 @@ class GameState {
         if (thr > W * H) return
         var chain = 0
         while (chain < 8) {
-            val doomed = ArrayList<Int>()
-            val seen = BooleanArray(W * H)
-            for (start in 0 until W * H) {
-                if (seen[start] || board[start] == 0) continue
-                val color = board[start]
-                val group = ArrayList<Int>()
-                val stack = ArrayList<Int>()
-                stack.add(start); seen[start] = true
-                while (stack.isNotEmpty()) {
-                    val i = stack.removeAt(stack.size - 1)
-                    group.add(i)
-                    val x = i % W; val y = i / W
-                    for (d in intArrayOf(i - 1, i + 1, i - W, i + W)) {
-                        if (d < 0 || d >= W * H || seen[d] || board[d] != color) continue
-                        if (d == i - 1 && x == 0) continue
-                        if (d == i + 1 && x == W - 1) continue
-                        seen[d] = true; stack.add(d)
+            val marked = BooleanArray(W * H)
+            for (r in 0 until H) {
+                var c = 0
+                while (c < W) {
+                    val start = c
+                    val color = board[r * W + c]
+                    if (color == 0) {
+                        c++
+                        continue
                     }
+                    while (c < W && board[r * W + c] == color) c++
+                    if (c - start >= thr) for (x in start until c) marked[r * W + x] = true
                 }
-                if (group.size >= thr) doomed.addAll(group)
             }
+            for (c in 0 until W) {
+                var r = 0
+                while (r < H) {
+                    val start = r
+                    val color = board[r * W + c]
+                    if (color == 0) {
+                        r++
+                        continue
+                    }
+                    while (r < H && board[r * W + c] == color) r++
+                    if (r - start >= thr) for (y in start until r) marked[y * W + c] = true
+                }
+            }
+            val doomed = ArrayList<Int>()
+            for (idx in marked.indices) if (marked[idx]) doomed.add(idx)
             if (doomed.isEmpty()) break
             chain++
             val cells = IntArray(doomed.size * 3)
@@ -420,8 +454,9 @@ class GameState {
         score = 0; lines = 0; level = 1; combo = -1; b2b = false
         holdType = -1; gameOver = false; running = true
         clearingRows = emptyList()
-        bag.clear(); nextQueue.clear()
-        refillBag(); repeat(3) { nextQueue.add(drawBag()) }
+        bag.clear(); nextQueue.clear(); nextColors.clear()
+        holdColor = -1
+        refillBag(); repeat(3) { val s = drawBag(); nextQueue.add(s); nextColors.add(rollColor(s)) }
         spawn()
         events.add(Event("restart"))
     }

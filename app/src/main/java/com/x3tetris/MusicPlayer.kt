@@ -1,4 +1,4 @@
-package com.tetrallama
+package com.x3tetris
 
 import android.content.Context
 import android.media.MediaPlayer

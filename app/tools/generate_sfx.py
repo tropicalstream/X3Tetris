@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 """
-TetraLlama 3D sound effects — synthesized in the spirit of Tempest 2000:
+X3Tetris sound effects — synthesized in the spirit of Tempest 2000:
 short, punchy, slightly too enthusiastic. numpy -> WAV -> ffmpeg -> Ogg.
 
     python3 app/tools/generate_sfx.py
@@ -40,7 +40,7 @@ def save(name, sig):
     pathlib.Path(wav).unlink()
     print(f"  + {out.name} ({out.stat().st_size // 1024} KB)")
 
-print("Zapping up TetraLlama SFX …")
+print("Zapping up X3Tetris SFX …")
 # move: tiny zap blip
 save("move", norm(env(sweep(900, 1400, 0.05))))
 # rotate: upward chirp
@@ -87,10 +87,11 @@ for k,f in [(0.0,523),(0.12,659),(0.24,784),(0.36,1046)]:
 save("levelup", norm(sig, 0.8))
 # gameover: sad power-down
 save("gameover", norm(env(sweep(880, 55, 1.4) + 0.4*sweep(440, 28, 1.4), 0.01, 0.5)))
-# yak: the llama's electric bleat (Tetris celebration)
-d=0.55; tt=t(d)
-bleat = np.sin(2*np.pi*(300+120*np.sign(np.sin(tt*90)))*tt) * (0.6+0.4*np.sin(tt*55))
-save("yak", norm(env(bleat, 0.01, 0.15), 0.75))
+# panda: contented grunt + happy squeak (Tetris celebration)
+d=0.6; tt=t(d)
+grunt = np.sin(2*np.pi*(110+40*np.sin(tt*18))*tt) * np.exp(-tt*4)
+squeak = sweep(900, 1500, d) * np.exp(-(tt-0.25)**2/0.006) * 0.7
+save("panda", norm(env(grunt*1.1 + squeak, 0.01, 0.2), 0.75))
 # menu: soft tap
 save("menu", norm(env(sweep(1000, 900, 0.05)), 0.5))
 # chroma: bubbly color-pop arpeggio (pitch rises with chain via play rate)
