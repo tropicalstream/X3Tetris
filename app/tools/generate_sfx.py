@@ -93,4 +93,10 @@ bleat = np.sin(2*np.pi*(300+120*np.sign(np.sin(tt*90)))*tt) * (0.6+0.4*np.sin(tt
 save("yak", norm(env(bleat, 0.01, 0.15), 0.75))
 # menu: soft tap
 save("menu", norm(env(sweep(1000, 900, 0.05)), 0.5))
+# chroma: bubbly color-pop arpeggio (pitch rises with chain via play rate)
+d = 0.32; tt = t(d); sig = np.zeros(len(tt))
+for k, f in [(0.0, 740), (0.07, 932), (0.14, 1244)]:
+    i = int(k * SR); seg = t(0.16)
+    sig[i:i + len(seg)] += np.sin(2*np.pi*f*seg*(1+0.3*seg)) * np.exp(-seg*14) * 0.6
+save("chroma", norm(env(sig, 0.003, 0.1), 0.7))
 print("Done — the well is loud.")

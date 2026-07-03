@@ -9,7 +9,7 @@ object AppState {
     @Volatile var phase = PHASE_TITLE
     @Volatile var paused = false
 
-    // settings menu (double-tap): tap=next, double=select, hold=close
+    // settings menu: swipe up/down moves, tap selects, double-tap exits
     @Volatile var menuOpen = false
     @Volatile var menuIndex = 0
 
@@ -19,6 +19,15 @@ object AppState {
     @Volatile var invertMove = false
     @Volatile var musicVol = 0.8f
     @Volatile var sfxVol = 1.0f
+
+    /**
+     * SKILL: 0 Apprentice · 1 Journeyman · 2 Adept · 3 Wizard.
+     * Governs the CHROMA rule (connected same-color groups pop at a threshold
+     * that starts small and grows each level — Tetris 2, 1993, says hello),
+     * plus gravity multiplier and lock delay. Wizard = pure classic rows, fast.
+     */
+    @Volatile var skill = 0
+    val SKILL_NAMES = arrayOf("APPRENTICE", "JOURNEYMAN", "ADEPT", "WIZARD")
 
     // transient HUD
     @Volatile var message = ""

@@ -5,32 +5,42 @@ import android.media.MediaPlayer
 import java.io.File
 
 /**
- * Level music: drop YOUR MP3s into assets/music/ (any names — they're sorted
- * alphabetically and mapped to levels in order; the last track carries all
- * higher levels). Each loops until the level changes. No files = silence,
- * which Jeff would call a missed opportunity.
+ * Title music and level music. "Astro Vinyl Intro.mp3" is reserved for the
+ * start screen; every other MP3 in assets/music/ is mapped to levels in
+ * alphabetical order, with the last track carrying all higher levels.
  */
 class MusicPlayer(private val ctx: Context) {
-    private var tracks: List<String> = emptyList()
+    private var introTrack: String? = null
+    private var levelTracks: List<String> = emptyList()
     private var current: MediaPlayer? = null
-    private var currentIdx = -1
+    private var currentKey = ""
 
     init {
-        tracks = runCatching {
+        val tracks = runCatching {
             ctx.assets.list("music")?.filter { it.endsWith(".mp3", true) }?.sorted() ?: emptyList()
         }.getOrDefault(emptyList())
+        introTrack = tracks.firstOrNull { it.equals("Astro Vinyl Intro.mp3", ignoreCase = true) }
+        levelTracks = tracks.filterNot { it == introTrack }
+    }
+
+    fun playIntro() {
+        introTrack?.let { playTrack("intro:$it", it) }
     }
 
     fun playForLevel(level: Int) {
-        if (tracks.isEmpty()) return
-        val idx = (level - 1).coerceIn(0, tracks.size - 1)
-        if (idx == currentIdx && current?.isPlaying == true) return
-        currentIdx = idx
+        if (levelTracks.isEmpty()) return
+        val idx = (level - 1).coerceIn(0, levelTracks.size - 1)
+        playTrack("level:$idx:${levelTracks[idx]}", levelTracks[idx])
+    }
+
+    private fun playTrack(key: String, assetName: String) {
+        if (key == currentKey && current?.isPlaying == true) return
+        currentKey = key
         runCatching {
             current?.release()
-            val f = File(ctx.cacheDir, "music_${tracks[idx]}")
+            val f = File(ctx.cacheDir, "music_$assetName")
             if (!f.exists() || f.length() == 0L) {
-                ctx.assets.open("music/${tracks[idx]}").use { i -> f.outputStream().use { i.copyTo(it) } }
+                ctx.assets.open("music/$assetName").use { i -> f.outputStream().use { i.copyTo(it) } }
             }
             val mp = MediaPlayer()
             mp.setDataSource(f.absolutePath)
@@ -50,5 +60,5 @@ class MusicPlayer(private val ctx: Context) {
 
     fun pause() = runCatching { if (current?.isPlaying == true) current?.pause() }
     fun resume() = runCatching { current?.start() }
-    fun stop() { runCatching { current?.release() }; current = null; currentIdx = -1 }
+    fun stop() { runCatching { current?.release() }; current = null; currentKey = "" }
 }

@@ -34,6 +34,22 @@ level-up shows the next chapter of Tetris history:
 Scoring: 100/300/500/800 × level; T-spins 800/1200/1600; B2B ×1.5;
 combos 50 × n × level; soft drop +1/cell; hard drop +2/cell.
 
+## Skill tiers & the CHROMA rule
+
+Settings → SKILL. Connected **same-color groups pop automatically** once they
+reach a threshold (a nod to *Tetris 2*, 1993, when color-matching entered the
+family). The threshold starts small and **rises by one every two levels**, so
+every run drifts from playground to gauntlet. Pops cascade: floaters fall
+straight down and can chain (×2, ×3… — 20 × blocks × level × chain points).
+Chroma pops never advance the line counter — leveling stays honest rows.
+
+| Tier | Color pop at L1 | Cap | Gravity | Lock delay |
+| --- | --- | --- | --- | --- |
+| **APPRENTICE** | 4+ connected (super easy) | 8 | ×0.55 | 700 ms |
+| **JOURNEYMAN** | 5+ | 10 | ×0.8 | 600 ms |
+| **ADEPT** | 7+ | 12 | ×1.0 | 500 ms |
+| **WIZARD** | never — rows only | — | ×1.35 | 400 ms, ×1.5 score |
+
 ## Controls (right temple pad)
 
 | Gesture | Action |

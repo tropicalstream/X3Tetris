@@ -105,7 +105,8 @@ class GameState {
         val LEVEL_SHOUTS = arrayOf("WARP LEVEL", "FASTER, FLUFFIER", "THE WELL HUNGERS")
     }
 
-    class Event(val type: String, val a: Int = 0, val text: String = "")
+    class Event(val type: String, val a: Int = 0, val text: String = "",
+                val cells: IntArray = IntArray(0))
 
     // ---- state ----
     val board = IntArray(W * H)                 // 0 empty, else pieceIdx+1
@@ -156,12 +157,29 @@ class GameState {
 
     private fun grounded() = collides(pieceType, rot, px, py - 1)
 
-    /** Guideline gravity curve: seconds per row. */
+    /** Guideline gravity curve: seconds per row (scaled by skill tier). */
     private fun gravitySec(): Float {
         val l = (level - 1).coerceAtMost(19)
         var t = 1.0
         repeat(l) { t *= (0.8 - (level - 1) * 0.007).coerceAtLeast(0.05) }
-        return t.toFloat().coerceAtLeast(0.016f)
+        val mult = when (AppState.skill) { 0 -> 0.55f; 1 -> 0.8f; 2 -> 1f; else -> 1.35f }
+        return (t.toFloat() / mult).coerceAtLeast(0.016f)
+    }
+
+    private fun lockDelayMs(): Long =
+        when (AppState.skill) { 0 -> 700L; 1 -> 600L; 2 -> 500L; else -> 400L }
+
+    /**
+     * THE CHROMA RULE (skill-driven): connected same-color groups of at least
+     * this many blocks pop on their own. Starts forgiving at level 1 and grows
+     * one block every two levels — the game slowly takes the training wheels
+     * away. Wizard tier disables it entirely: rows or nothing.
+     */
+    fun chromaThreshold(): Int = when (AppState.skill) {
+        0 -> (4 + (level - 1) / 2).coerceAtMost(8)      // super easy start
+        1 -> (5 + (level - 1) / 2).coerceAtMost(10)
+        2 -> (7 + (level - 1) / 2).coerceAtMost(12)
+        else -> Int.MAX_VALUE                            // wizard: earn your clears
     }
 
     private fun shout(pool: Array<String>, key: String): String {
@@ -194,7 +212,7 @@ class GameState {
             return
         }
         if (grounded()) {
-            if (lockTimerMs < 0) lockTimerMs = LOCK_DELAY_MS
+            if (lockTimerMs < 0) lockTimerMs = lockDelayMs()
             lockTimerMs -= dtMs
             if (lockTimerMs <= 0) lock()
         } else {
@@ -211,7 +229,7 @@ class GameState {
 
     private fun resetLock() {
         if (lockTimerMs >= 0 && lockResets < MAX_LOCK_RESETS) {
-            lockTimerMs = LOCK_DELAY_MS; lockResets++
+            lockTimerMs = lockDelayMs(); lockResets++
         }
     }
 
@@ -280,7 +298,8 @@ class GameState {
         if (full.isEmpty()) {
             if (tSpin) { score += 400L * level; events.add(Event("message", 0, shout(TSPIN_SHOUTS, "ts"))) }
             combo = -1
-            spawn()
+            applyChroma()                            // skill rule: color groups may pop
+            if (!gameOver) spawn()
             return
         }
         // scoring (guideline)
@@ -293,6 +312,7 @@ class GameState {
         if (difficult && b2b) { pts = pts * 3 / 2; events.add(Event("message", 0, shout(B2B_SHOUTS, "b2b"))) }
         if (combo > 0) pts += 50L * combo * level
         b2b = difficult
+        if (AppState.skill == 3) pts = pts * 3 / 2   // Wizard: no chroma help, more glory
         score += pts
         if (n == 4) events.add(Event("tetris", 0, shout(TETRIS_SHOUTS, "tet")))
         else if (tSpin) events.add(Event("tspinclear", n, shout(TSPIN_SHOUTS, "ts")))
@@ -323,7 +343,66 @@ class GameState {
             events.add(Event("message", 0, shout(LEVEL_SHOUTS, "lvl")))
         }
         running = true
+        applyChroma()                                // settled stack may chain color pops
         spawn()
+    }
+
+    // ---------------- chroma (skill) mechanic ----------------
+
+    /**
+     * Flood-fills same-color groups; any group >= chromaThreshold() pops,
+     * columns compact downward, and cascades chain (×2, ×3 …). Scoring:
+     * 20 × blocks × level × chain. Chroma pops do NOT advance the line
+     * counter — leveling stays honest row-clearing, as tradition demands.
+     */
+    private fun applyChroma() {
+        val thr = chromaThreshold()
+        if (thr > W * H) return
+        var chain = 0
+        while (chain < 8) {
+            val doomed = ArrayList<Int>()
+            val seen = BooleanArray(W * H)
+            for (start in 0 until W * H) {
+                if (seen[start] || board[start] == 0) continue
+                val color = board[start]
+                val group = ArrayList<Int>()
+                val stack = ArrayList<Int>()
+                stack.add(start); seen[start] = true
+                while (stack.isNotEmpty()) {
+                    val i = stack.removeAt(stack.size - 1)
+                    group.add(i)
+                    val x = i % W; val y = i / W
+                    for (d in intArrayOf(i - 1, i + 1, i - W, i + W)) {
+                        if (d < 0 || d >= W * H || seen[d] || board[d] != color) continue
+                        if (d == i - 1 && x == 0) continue
+                        if (d == i + 1 && x == W - 1) continue
+                        seen[d] = true; stack.add(d)
+                    }
+                }
+                if (group.size >= thr) doomed.addAll(group)
+            }
+            if (doomed.isEmpty()) break
+            chain++
+            val cells = IntArray(doomed.size * 3)
+            doomed.forEachIndexed { i, idx ->
+                cells[i * 3] = idx % W; cells[i * 3 + 1] = idx / W; cells[i * 3 + 2] = board[idx]
+                board[idx] = 0
+            }
+            score += 20L * doomed.size * level * chain
+            events.add(Event("chroma", chain, "", cells))
+            // column gravity: floaters fall straight down, may chain again
+            for (c in 0 until W) {
+                var write = 0
+                for (r in 0 until H) {
+                    val v = board[r * W + c]
+                    if (v != 0) {
+                        board[r * W + c] = 0
+                        board[write * W + c] = v
+                        write++
+                    }
+                }
+            }
+        }
     }
 
     /** T-spin 3-corner rule around the T's center. */

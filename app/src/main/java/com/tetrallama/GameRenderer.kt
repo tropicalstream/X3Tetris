@@ -58,6 +58,7 @@ class GameRenderer(
 
     // piece hues: I O T S Z J L (guideline colors, neonized)
     private val pieceHue = floatArrayOf(0.50f, 0.14f, 0.78f, 0.33f, 0.0f, 0.62f, 0.08f)
+    private var chromaCardShown = false
 
     override fun onSurfaceCreated(gl: GL10?, config: EGLConfig?) {
         GLES20.glClearColor(0f, 0f, 0f, 1f)
@@ -222,6 +223,23 @@ class GameRenderer(
                     sfx.play("yak", 1f)
                 }
                 "tspinclear" -> { AppState.say(e.text); sfx.play("tspin") }
+                "chroma" -> {
+                    // color-group pop: bursts in the group's own colors, chain pitch rises
+                    var i = 0
+                    while (i < e.cells.size) {
+                        val c = e.cells[i]; val r = e.cells[i + 1]; val v = e.cells[i + 2]
+                        particles.burst(c - 5f + 0.5f, r - 10f + 0.5f, 0f, 5,
+                            pieceHue[(v - 1).coerceIn(0, 6)], 7f)
+                        i += 3
+                    }
+                    sfx.play("chroma", 0.9f, 1f + (e.a - 1) * 0.12f)
+                    if (e.a >= 2) AppState.say("CHROMA CHAIN ×${e.a} — TASTY", 1800)
+                    if (!chromaCardShown) {
+                        chromaCardShown = true
+                        AppState.card("CHROMA RULE · TETRIS 2 (1993)\n\nColor-matching came to Tetris in 1993.\nConnected same-color blocks pop at ${game.chromaThreshold()}+ —\nthe bar rises as you level. Wizards get nothing.", 6500)
+                    }
+                    AppState.flash = (AppState.flash + 0.15f).coerceAtMost(0.6f)
+                }
                 "message" -> AppState.say(e.text)
                 "combo" -> { AppState.say("COMBO ×${e.a} — MOO?"); sfx.play("combo", 0.9f, 1f + e.a * 0.06f) }
                 "levelup" -> {
@@ -411,7 +429,7 @@ class GameRenderer(
             AppState.PHASE_TITLE -> {
                 bigText.setText("TETRA LLAMA 3D")
                 bigText.draw(0f, 0.45f, 0.16f, eyeAspect, 0.8f + 0.2f * sin(timeSec * 3f))
-                cardText.setText("TAP · PLACE PIECE (hard drop)\nSWIPE FWD/BACK · MOVE\nSWIPE UP · SPIN  DOWN · SOFT DROP\nHOLD · KEEP A PIECE FOR LATER\nDOUBLE-TAP · SETTINGS\n\n40 YEARS OF TETRIS, ONE NEON WELL.\nTAP TO BEGIN.")
+                cardText.setText("TAP · PLACE PIECE (hard drop)\nSWIPE FWD/BACK · MOVE\nSWIPE UP · SPIN  DOWN · SOFT DROP\nHOLD · KEEP A PIECE FOR LATER\nDOUBLE-TAP · SETTINGS\n\nSKILL: ${AppState.SKILL_NAMES[AppState.skill]} — color groups of ${if (AppState.skill == 3) "∞ (rows only!)" else "${game.chromaThreshold()}+"} pop.\n40 YEARS OF TETRIS, ONE NEON WELL.\nTAP TO BEGIN.")
                 cardText.draw(0f, -0.35f, 0.32f, eyeAspect, 0.95f)
             }
             AppState.PHASE_OVER -> {
@@ -421,7 +439,10 @@ class GameRenderer(
                 cardText.draw(0f, -0.42f, 0.2f, eyeAspect, 0.9f)
             }
             else -> {
-                hudText.setText("SCORE ${"%,d".format(game.score)}\nLINES ${game.lines} · LVL ${game.level}")
+                val thr = game.chromaThreshold()
+                hudText.setText("SCORE ${"%,d".format(game.score)}\nLINES ${game.lines} · LVL ${game.level}" +
+                        if (thr <= GameState.W * GameState.H) "\nCHROMA ≥$thr · ${AppState.SKILL_NAMES[AppState.skill]}"
+                        else "\nWIZARD · ROWS ONLY")
                 hudText.draw(-0.62f, 0.78f, 0.12f, eyeAspect, 0.9f)
                 if (now < AppState.messageUntil && AppState.message.isNotBlank()) {
                     val fade = ((AppState.messageUntil - now) / 400f).coerceIn(0f, 1f)
@@ -437,12 +458,13 @@ class GameRenderer(
                     val items = listOf(
                         "RESUME",
                         "RESTART GAME",
+                        "SKILL: ${AppState.SKILL_NAMES[AppState.skill]}",
                         "MUSIC VOL: ${(AppState.musicVol * 100).toInt()}%",
                         "SFX VOL: ${(AppState.sfxVol * 100).toInt()}%",
                         "GHOST PIECE: ${if (AppState.ghostOn) "ON" else "OFF"}",
                         "SWAP PAD AXES: ${if (AppState.swapAxes) "ON" else "OFF"}",
                         "INVERT MOVE: ${if (AppState.invertMove) "ON" else "OFF"}")
-                    val b = StringBuilder("— SETTINGS —")
+                    val b = StringBuilder("— SETTINGS —\nSWIPE UP/DOWN · TAP SELECT · DOUBLE EXIT")
                     items.forEachIndexed { i, s ->
                         b.append('\n').append(if (i == AppState.menuIndex) "▶ $s" else "· $s")
                     }

@@ -11,7 +11,8 @@ import androidx.appcompat.app.AppCompatActivity
 /**
  * TETRA LLAMA 3D — host activity. Right temple pad (cyttsp5) is the game pad;
  * screen touches mirror it for flat testing. Tap places the piece; double-tap
- * opens settings; inside the menu: tap=next, double=select, hold=close.
+ * opens settings; inside the menu: swipe up/down moves, tap selects,
+ * double-tap exits.
  */
 class MainActivity : AppCompatActivity() {
 
@@ -20,7 +21,7 @@ class MainActivity : AppCompatActivity() {
     private lateinit var sfx: Sfx
     private lateinit var music: MusicPlayer
     private lateinit var gestures: GameGestures
-    private val menuItemCount = 7
+    private val menuItemCount = 8
 
     @SuppressLint("ClickableViewAccessibility")
     override fun onCreate(savedInstanceState: Bundle?) {
@@ -32,7 +33,7 @@ class MainActivity : AppCompatActivity() {
         sfx = Sfx(this)
         sfx.preload("move", "rotate", "tick", "harddrop", "lock", "bump", "hold",
             "clear1", "clear2", "clear3", "tetris", "tspin", "combo",
-            "levelup", "gameover", "yak", "menu")
+            "levelup", "gameover", "yak", "menu", "chroma")
         music = MusicPlayer(this)
 
         glView = GLSurfaceView(this).apply {
@@ -42,14 +43,19 @@ class MainActivity : AppCompatActivity() {
             renderMode = GLSurfaceView.RENDERMODE_CONTINUOUSLY
         }
         setContentView(glView)
+        music.playIntro()
 
         gestures = GameGestures(
             onSwipeH = { dir ->
                 if (AppState.menuOpen) return@GameGestures
                 AppState.actions.add(if (dir < 0) 1 else 2)
             },
-            onSwipeUp = { if (!AppState.menuOpen) AppState.actions.add(3) },
-            onSwipeDown = { if (!AppState.menuOpen) AppState.actions.add(4) },
+            onSwipeUp = {
+                if (AppState.menuOpen) moveMenu(-1) else AppState.actions.add(3)
+            },
+            onSwipeDown = {
+                if (AppState.menuOpen) moveMenu(1) else AppState.actions.add(4)
+            },
             onTap = { onTap() },
             onDoubleTap = { onDoubleTap() },
             onLongPress = { onLongPress() }
@@ -60,10 +66,7 @@ class MainActivity : AppCompatActivity() {
 
     private fun onTap() {
         when {
-            AppState.menuOpen -> {                                // menu: next item
-                AppState.menuIndex = (AppState.menuIndex + 1) % menuItemCount
-                sfx.play("menu", 0.7f)
-            }
+            AppState.menuOpen -> selectMenuItem()
             AppState.phase != AppState.PHASE_PLAY -> AppState.actions.add(7)   // start / retry
             AppState.paused -> { AppState.paused = false; music.resume(); sfx.play("menu") }
             else -> AppState.actions.add(5)                       // TAP = PLACE PIECE
@@ -79,7 +82,16 @@ class MainActivity : AppCompatActivity() {
             sfx.play("menu", 0.9f)
             return
         }
-        when (AppState.menuIndex) {                               // select item
+        closeMenu()
+    }
+
+    private fun moveMenu(delta: Int) {
+        AppState.menuIndex = (AppState.menuIndex + delta + menuItemCount) % menuItemCount
+        sfx.play("menu", 0.7f)
+    }
+
+    private fun selectMenuItem() {
+        when (AppState.menuIndex) {
             0 -> { AppState.menuOpen = false; AppState.paused = false; music.resume() }
             1 -> {
                 AppState.menuOpen = false; AppState.paused = false
@@ -87,19 +99,35 @@ class MainActivity : AppCompatActivity() {
                 music.playForLevel(1); music.resume()
                 AppState.say("RESTARTED. THE WELL FORGIVES.", 2500)
             }
-            2 -> { AppState.musicVol = step(AppState.musicVol); music.applyVolume() }
-            3 -> { AppState.sfxVol = step(AppState.sfxVol); sfx.play("clear1") }
-            4 -> AppState.ghostOn = !AppState.ghostOn
-            5 -> AppState.swapAxes = !AppState.swapAxes
-            6 -> AppState.invertMove = !AppState.invertMove
+            2 -> {                                                // SKILL tier
+                AppState.skill = (AppState.skill + 1) % 4
+                AppState.say("SKILL: ${AppState.SKILL_NAMES[AppState.skill]}" +
+                        if (AppState.skill == 3) " — ROWS ONLY, FAST, ×1.5 SCORE"
+                        else " — COLOR POPS AT ${game.chromaThreshold()}+", 3200)
+            }
+            3 -> { AppState.musicVol = step(AppState.musicVol); music.applyVolume() }
+            4 -> { AppState.sfxVol = step(AppState.sfxVol); sfx.play("clear1") }
+            5 -> AppState.ghostOn = !AppState.ghostOn
+            6 -> AppState.swapAxes = !AppState.swapAxes
+            7 -> AppState.invertMove = !AppState.invertMove
         }
         sfx.play("menu", 0.8f)
     }
 
+    private fun closeMenu() {
+        AppState.menuOpen = false
+        if (AppState.phase == AppState.PHASE_PLAY) {
+            AppState.paused = false
+            music.resume()
+        } else {
+            music.playIntro()
+        }
+        sfx.play("menu", 0.7f)
+    }
+
     private fun onLongPress() {
-        if (AppState.menuOpen) {                                  // close menu (stay paused)
-            AppState.menuOpen = false
-            sfx.play("menu", 0.7f)
+        if (AppState.menuOpen) {
+            closeMenu()
             return
         }
         if (AppState.phase == AppState.PHASE_PLAY && !AppState.paused) {
@@ -128,7 +156,11 @@ class MainActivity : AppCompatActivity() {
     override fun onResume() {
         super.onResume()
         glView.onResume()
-        if (AppState.phase == AppState.PHASE_PLAY && !AppState.paused) music.resume()
+        if (AppState.phase == AppState.PHASE_PLAY && !AppState.paused) {
+            music.resume()
+        } else if (!AppState.menuOpen) {
+            music.playIntro()
+        }
         hideSystemUi()
     }
 
