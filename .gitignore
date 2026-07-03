@@ -7,6 +7,8 @@ build/
 captures/
 .externalNativeBuild/
 .cxx/
+__pycache__/
+*.pyc
 # player-provided music is not committed
 app/src/main/assets/music/*.mp3
 # Fish Audio key

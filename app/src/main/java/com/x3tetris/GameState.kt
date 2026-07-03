@@ -479,6 +479,15 @@ class GameState {
         }
     }
 
+    /** T-spin 3-corner rule around the T piece's rotation center. */
+    private fun tCorners(): Int {
+        var n = 0
+        for (d in arrayOf(intArrayOf(0, 0), intArrayOf(2, 0), intArrayOf(0, 2), intArrayOf(2, 2))) {
+            if (at(px + d[0], py + d[1]) != 0) n++
+        }
+        return n
+    }
+
     private fun applyChroma() {
         val thr = chromaThreshold()
         if (thr > W * H) return

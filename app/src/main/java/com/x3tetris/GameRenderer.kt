@@ -493,7 +493,7 @@ class GameRenderer(
                 hudText.setText("SCORE ${"%,d".format(game.score)}\nLINES ${game.lines} · LVL ${game.level}" + goalLine +
                         if (thr <= GameState.W * GameState.H) "\nCHROMA ≥$thr · ${AppState.SKILL_NAMES[AppState.skill]}"
                         else "\nWIZARD · ROWS ONLY")
-                hudText.draw(-0.62f, 0.78f, 0.12f, eyeAspect, 0.9f)
+                hudText.draw(-0.74f, 0.72f, 0.18f, eyeAspect, 0.95f)
                 if (now < AppState.messageUntil && AppState.message.isNotBlank()) {
                     val fade = ((AppState.messageUntil - now) / 400f).coerceIn(0f, 1f)
                     msgText.setText(AppState.message)
