@@ -1,14 +1,12 @@
 # X3TETRIS
 
-A 3D Tetris for the **RayNeo X3 Pro** wearing the soul of **Tempest 2000**:
+A 3D Tetris for the **RayNeo X3 Pro**:
 everything is glowing additive vector lines, the screen melts with video-
 feedback trails, line clears detonate into particles, the palette never stops
 hue-cycling, and — as the house style demands — a neon panda ambles through a swaying
 bamboo grove in the background and **charges across your face when you
 score a Tetris**.
 
-Stereo side-by-side rendering (same pipeline as Project Pale Blue), RayNeo
-Mercury registration, fully offline.
 
 ## The rules (and where they came from)
 
@@ -53,64 +51,4 @@ Level clear in Apprentice/Journeyman/Adept: every leftover 3+ color run
 **chain-pops in a firework display** for bonus points (5×blocks×level×chain)
 before the next stage. Wizard transitions instantly — zero flair, unbroken drop.
 
-## The Announcer
 
-A Fish-voiced arcade host (voice model `a387e2e593f74e899e45cf17a7c81dd7`)
-calls the big moments — welcome, level clears, Tetrises, near-empty meter,
-game over, and the occasional zen nudge if things go quiet. A hard 45-second
-global cooldown keeps it engaging, never chatty. Render the clips once:
-
-```bash
-pip install requests
-python3 app/tools/generate_voice.py     # key in gitignored app/tools/fish.config
-```
-
-Clips land in `assets/voice/`; the game is silent-but-happy without them.
-
-## Skill tiers & the CHROMA rule
-
-Settings -> SKILL. Straight horizontal or vertical **same-color runs pop
-automatically** once they reach a threshold (a nod to *Tetris 2*, 1993, when
-color-matching entered the family). Apprentice starts forgiving without letting
-single tetrominoes erase themselves. Pops cascade: floaters fall straight down
-and can chain (x2, x3... — 20 x blocks x level x chain points).
-Chroma pops never advance the line counter — leveling stays honest rows.
-
-| Tier | Color run pops at | Gravity | Lock delay |
-| --- | --- | --- | --- |
-| **APPRENTICE** | 8+ in a row/column | x0.55 | 700 ms |
-| **JOURNEYMAN** | 10+ in a row/column | x0.8 | 600 ms |
-| **ADEPT** | 12+ in a row/column | x1.0 | 500 ms |
-| **WIZARD** | never — rows only | x1.35 | 400 ms, x1.5 score |
-
-## Controls (right temple pad)
-
-| Gesture | Action |
-| --- | --- |
-| swipe **forward / back** | move piece right / left (drag keeps stepping — DAS) |
-| swipe **up** | rotate (SRS, kicks and all) |
-| swipe **down** | soft drop |
-| **TAP** | **place piece** (hard drop) — also starts/retries |
-| **double tap** | settings menu (tap=next · double=select · hold=close) |
-| **long press** | hold piece |
-
-Settings: resume, restart, music/SFX volume, ghost on/off, swap pad axes,
-invert move — the axis options cover pads that report rotated coordinates.
-
-## Music
-
-Drop your MP3s in `app/src/main/assets/music/` — sorted alphabetically,
-one per level, last track loops for all later levels. See the README there.
-SFX are already synthesized (`app/tools/generate_sfx.py` regenerates).
-
-## Build
-
-Android Studio (AGP 8.7.3 / Kotlin 2.0.21 / JDK 17) or
-`gradle wrapper --gradle-version 8.9 && ./gradlew assembleDebug`.
-Optional RayNeo AARs go in `app/libs/`. Screen touches mirror the pad,
-so it runs on a phone for testing.
-
-## Repo
-
-X3Tetris lives in its own directory and its own git repository, on branch
-`neon-tetris` — independent of Project Pale Blue next door.
