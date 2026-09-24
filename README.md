@@ -9,6 +9,10 @@ X3Tetris is a guideline-faithful Tetris built natively for the RayNeo X3 Pro AR 
   <img src="images/gameplay.png" width="45%" alt="X3Tetris well with falling pieces and next-piece queue">
 </p>
 
+## Demo
+
+[![X3Tetris](https://i.ytimg.com/vi/pP25FOTQYD4/hqdefault.jpg)](https://youtu.be/pP25FOTQYD4)
+
 ## Controls (right temple pad)
 
 - Swipe forward / back — move piece right / left
