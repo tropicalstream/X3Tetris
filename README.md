@@ -7,6 +7,13 @@ hue-cycling, and — as the house style demands — a neon panda ambles through 
 bamboo grove in the background and **charges across your face when you
 score a Tetris**.
 
+## Screenshots
+
+<p>
+  <img src="images/title.png" width="45%" alt="X3Tetris title screen with video-feedback trails">
+  <img src="images/gameplay.png" width="45%" alt="X3Tetris well with falling pieces and next-piece queue">
+</p>
+
 
 ## The rules (and where they came from)
 
